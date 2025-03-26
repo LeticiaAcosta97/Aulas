@@ -1,0 +1,37 @@
+function guardarEquipos() {
+    let equipos = [];
+
+    document.querySelectorAll(".equipo-item").forEach(row => {
+        let id = row.dataset.id || 0;
+        let descripcion = row.querySelector(".desc-input").value.trim();
+        let cantidad = parseInt(row.querySelector(".cant-input").value);
+        let marca = row.querySelector(".marca-input").value.trim();
+
+        if (!descripcion || cantidad <= 0 || !marca) {
+            alert("Error: Todos los campos son obligatorios y la cantidad debe ser mayor a 0.");
+            return;
+        }
+
+        equipos.push({ id, descripcion, cantidad, marca });
+    });
+
+    fetch("modificar_equipo.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(equipos)
+    })
+    .then(response => response.text())
+    .then(data => {
+        if (data.trim() === "success") {
+            alert("Equipos actualizados correctamente.");
+            document.querySelectorAll(".edit-input").forEach(input => {
+                input.setAttribute("disabled", "true");
+            });
+            document.getElementById("btnModificar").style.display = "inline-block";
+            document.getElementById("btnGuardar").style.display = "none";
+        } else {
+            alert("Error del servidor: " + data);
+        }
+    })
+    .catch(error => console.error("Error:", error));
+}
