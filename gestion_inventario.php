@@ -27,8 +27,14 @@ $result = $conn->query($query);
             </a>
             <h2>Gestión de Inventario</h2>
             <div>
-                <a href="reporte_inventario.php" class="btn btn-info">
-                    <i class="bi bi-file-text"></i> Ver Reporte
+                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalIngresarEquipo">
+                    <i class="bi bi-plus-circle"></i> Ingresar Equipos
+                </button>
+                <a href="reporte_sin_asignar.php" class="btn btn-info">
+                    <i class="bi bi-file-text"></i> Equipos Sin Asignar
+                </a>
+                <a href="reporte_asignados.php" class="btn btn-primary">
+                    <i class="bi bi-file-text"></i> Equipos Asignados
                 </a>
             </div>
         </div>
@@ -39,6 +45,8 @@ $result = $conn->query($query);
                     <th>Aula</th>
                     <th>Tipo</th>
                     <th>Descripción</th>
+                    <th>N° Factura</th>
+                    <th>Estado Asignación</th>
                     <th>Marca</th>
                     <th>Modelo</th>
                     <th>N° Serie/Patrimonio</th>
@@ -70,6 +78,14 @@ $result = $conn->query($query);
                         <td><?php echo $row['numero_aula']; ?></td>
                         <td><?php echo $row['tipo']; ?></td>
                         <td><?php echo $row['descripcion']; ?></td>
+                        <td><?php echo $row['nro_factura']; ?></td>
+                        <td>
+                            <?php if ($row['aula_id']): ?>
+                                <span class="badge bg-success">Asignado</span>
+                            <?php else: ?>
+                                <span class="badge bg-warning">Sin Asignar</span>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo $row['marca']; ?></td>
                         <td><?php echo $row['modelo']; ?></td>
                         <td><?php echo $row['nro_serie']; ?></td>
@@ -98,6 +114,7 @@ $result = $conn->query($query);
             </tbody>
         </table>
     </div>
+    
 
     <!-- Modal para editar equipo -->
     <div class="modal fade" id="modalEditarEquipo" tabindex="-1">
@@ -296,3 +313,135 @@ $result = $conn->query($query);
     </script>
 </body>
 </html>
+
+<!-- Modal para Ingresar Equipos -->
+<div class="modal fade" id="modalIngresarEquipo" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ingresar Nuevos Equipos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formIngresarEquipo">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Número de Factura</label>
+                            <input type="text" class="form-control" id="nro_factura" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Patrimonio</label>
+                            <input type="text" class="form-control" id="patrimonio" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Descripción</label>
+                            <textarea class="form-control" id="descripcion" required></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Cantidad</label>
+                            <input type="number" class="form-control" id="cantidad" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Marca</label>
+                            <input type="text" class="form-control" id="marca" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Modelo</label>
+                            <input type="text" class="form-control" id="modelo" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarEquipo()">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function guardarEquipo() {
+    const formData = new FormData();
+    formData.append('nro_factura', document.getElementById('nro_factura').value);
+    formData.append('patrimonio', document.getElementById('patrimonio').value);
+    formData.append('descripcion', document.getElementById('descripcion').value);
+    formData.append('cantidad', document.getElementById('cantidad').value);
+    formData.append('marca', document.getElementById('marca').value);
+    formData.append('modelo', document.getElementById('modelo').value);
+
+    fetch('guardar_equipo.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error al guardar el equipo: ' + data.error);
+        }
+    });
+}
+</script>
+
+<!-- Add Modal for Aula Assignment -->
+<div class="modal fade" id="modalAsignarAula" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Asignar Aula</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAsignarAula">
+                    <input type="hidden" id="equipo_id_asignar">
+                    <div class="mb-3">
+                        <label class="form-label">Seleccionar Aula</label>
+                        <select class="form-select" id="aula_id" required>
+                            <?php
+                            $aulas_query = "SELECT id, numero FROM aulas ORDER BY numero";
+                            $aulas_result = $conn->query($aulas_query);
+                            while ($aula = $aulas_result->fetch_assoc()) {
+                                echo "<option value='" . $aula['id'] . "'>" . $aula['numero'] . "</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarAsignacion()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add JavaScript functions -->
+<script>
+function asignarAula(id) {
+    document.getElementById('equipo_id_asignar').value = id;
+    var modal = new bootstrap.Modal(document.getElementById('modalAsignarAula'));
+    modal.show();
+}
+
+function guardarAsignacion() {
+    const formData = new FormData();
+    formData.append('equipo_id', document.getElementById('equipo_id_asignar').value);
+    formData.append('aula_id', document.getElementById('aula_id').value);
+
+    fetch('asignar_aula.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error al asignar aula: ' + data.error);
+        }
+    });
+}
+</script>
