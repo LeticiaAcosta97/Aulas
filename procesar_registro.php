@@ -18,8 +18,8 @@ if (empty($usuario) || empty($nombre) || empty($apellido) || empty($email) || em
 }
 
 // Validar que el rol sea válido
-$roles_permitidos = ['administrador', 'secretaria', 'mantenimiento'];
-if (!in_array($rol, $roles_permitidos)) {
+$roles_validos = ['administrador', 'mantenimiento', 'auxiliar'];
+if (!in_array($rol, $roles_validos)) {
     die("Error: Rol no válido.");
 }
 

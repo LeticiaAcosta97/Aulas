@@ -77,7 +77,7 @@ session_start();
                 <select class="form-select" name="rol" required>
                     <option value="">Seleccione un rol</option>
                     <option value="administrador">Administrador</option>
-                    <option value="secretaria">Secretaria</option>
+                    <option value="auxiliar">Auxiliar</option>
                     <option value="mantenimiento">Mantenimiento</option>
                 </select>
             </div>

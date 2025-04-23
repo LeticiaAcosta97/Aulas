@@ -62,7 +62,7 @@ if (!isset($_SESSION["nombre"])) {
     <div class="container py-5">
         <div class="row mb-4">
             <div class="col-12">
-                <h1>Bienvenido, <?php echo strtoupper($_SESSION['nombre']); ?></h1>
+                <h1>Bienvenido, <?php echo strtoupper($_SESSION['nombre']); ?> (<?php echo strtoupper($_SESSION['rol']); ?>)</h1>
                 <button class="btn btn-danger" onclick="location.href='logout.php'">Cerrar Sesión</button>
                 <!-- Eliminar el bloque dashboard-options para evitar duplicados -->
             </div>

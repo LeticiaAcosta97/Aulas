@@ -33,8 +33,11 @@ if (!isset($_SESSION['rol']) || $_SESSION['rol'] !== 'mantenimiento') {
     <div class="container py-5">
         <!-- Encabezado de bienvenida y botón cerrar sesión -->
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="text-white fw-bold">Bienvenido, <?= htmlspecialchars($_SESSION['nombre']) ?></h1>
-            <a href="logout.php" class="btn btn-danger btn-lg">Cerrar Sesión</a>
+            <div class="col-12">
+                <h1 class="text-white">Bienvenido, <?php echo strtoupper($_SESSION['nombre']); ?> (<?php echo strtoupper($_SESSION['rol']); ?>)</h1>
+                <button class="btn btn-danger" onclick="location.href='logout.php'">Cerrar Sesión</button>
+                <!-- Eliminar el bloque dashboard-options para evitar duplicados -->
+            </div>
         </div>
         <div class="row justify-content-center">
             <div class="col-md-8">
