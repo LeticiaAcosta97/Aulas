@@ -16,3 +16,18 @@ function checkSession() {
         exit();
     }
 }
+
+function sanitizeInput($data) {
+    $data = trim($data);
+    $data = stripslashes($data);
+    $data = htmlspecialchars($data);
+    return $data;
+}
+
+function checkUserRole($required_roles) {
+    if (!isset($_SESSION['rol']) || !in_array($_SESSION['rol'], $required_roles)) {
+        header("Location: login.php");
+        exit();
+    }
+}
+?>

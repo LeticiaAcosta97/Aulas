@@ -1,30 +1,40 @@
 <?php
-include "config.php";
+include("config.php");
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $id = $_POST['equipo_id'];
-    $tipo = $_POST['tipo'];
-    $marca = $_POST['marca'];
-    $modelo = $_POST['modelo'];
-    $nro_serie = $_POST['nro_serie'];
-    $fecha_instalacion = $_POST['fecha_instalacion'];
-    $periodo_mantenimiento = $_POST['periodo_mantenimiento'];
+$response = ['success' => false, 'message' => ''];
 
-    $sql = "UPDATE equipos SET 
-            tipo = ?, 
-            marca = ?, 
-            modelo = ?, 
-            nro_serie = ?,
-            fecha_instalacion = ?,
-            periodo_mantenimiento = ?
-            WHERE id = ?";
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        $equipo_id = $_POST['equipo_id'];
+        $tipo = $_POST['tipo'];
+        $marca = $_POST['marca'];
+        $modelo = $_POST['modelo'];
+        $nro_serie = $_POST['nro_serie'];
+        $fecha_instalacion = $_POST['fecha_instalacion'];
+        $periodo_mantenimiento = $_POST['periodo_mantenimiento'];
 
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("sssssii", $tipo, $marca, $modelo, $nro_serie, $fecha_instalacion, $periodo_mantenimiento, $id);
+        $query = "UPDATE equipos SET 
+                  tipo = ?,
+                  marca = ?,
+                  modelo = ?,
+                  nro_serie = ?,
+                  fecha_instalacion = ?,
+                  periodo_mantenimiento = ?
+                  WHERE id = ?";
 
-    if ($stmt->execute()) {
-        echo json_encode(['success' => true]);
-    } else {
-        echo json_encode(['success' => false, 'error' => $conn->error]);
+        $stmt = $conn->prepare($query);
+        $stmt->bind_param("sssssii", $tipo, $marca, $modelo, $nro_serie, $fecha_instalacion, $periodo_mantenimiento, $equipo_id);
+        
+        if ($stmt->execute()) {
+            $response['success'] = true;
+            $response['message'] = 'Equipo actualizado correctamente';
+        } else {
+            throw new Exception($stmt->error);
+        }
+    } catch (Exception $e) {
+        $response['message'] = 'Error al actualizar: ' . $e->getMessage();
     }
 }
+
+header('Content-Type: application/json');
+echo json_encode($response);

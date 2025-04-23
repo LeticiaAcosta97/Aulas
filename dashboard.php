@@ -1,5 +1,10 @@
 <?php
+session_start();
 include "includes/security.php";
+
+// Verificar que solo administradores puedan acceder
+checkUserRole(['administrador']);
+
 checkSession();
 
 // Verificar tiempo de inactividad (30 minutos)
@@ -25,17 +30,31 @@ if (!isset($_SESSION["nombre"])) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            background-color: #f5f5f5;
+            background: linear-gradient(45deg, #1e3c72, #2a5298);
+            min-height: 100vh;
         }
-        .module-card {
+        .card {
+            background: white;
+            border: none;
+            border-radius: 10px;
             transition: transform 0.3s;
         }
-        .module-card:hover {
+        .card:hover {
             transform: translateY(-5px);
         }
-        .module-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
+        .card-text {
+            color: #666;
+        }
+        h1 {
+            color: white;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            border: none;
+            padding: 8px 20px;
+        }
+        .btn-danger:hover {
+            background-color: #bb2d3b;
         }
     </style>
 </head>
@@ -43,10 +62,9 @@ if (!isset($_SESSION["nombre"])) {
     <div class="container py-5">
         <div class="row mb-4">
             <div class="col-12">
-                <h1 class="text-center mb-4">Bienvenido, <?php echo htmlspecialchars($_SESSION["nombre"]); ?></h1>
-                <div class="text-end">
-                    <button onclick="location.href='logout.php'" class="btn btn-danger">Cerrar Sesión</button>
-                </div>
+                <h1>Bienvenido, <?php echo strtoupper($_SESSION['nombre']); ?></h1>
+                <button class="btn btn-danger" onclick="location.href='logout.php'">Cerrar Sesión</button>
+                <!-- Eliminar el bloque dashboard-options para evitar duplicados -->
             </div>
         </div>
 
@@ -56,7 +74,6 @@ if (!isset($_SESSION["nombre"])) {
                 <a href="asignacion_aulas.php" class="text-decoration-none">
                     <div class="card module-card h-100 shadow">
                         <div class="card-body text-center p-4">
-                            <!-- Cambiar la imagen por una más moderna -->
                             <img src="https://cdn-icons-png.flaticon.com/512/10015/10015999.png" alt="Aulas" class="img-fluid mb-3" style="max-width: 150px;">
                             <h3 class="card-title text-primary">Asignación de Aulas</h3>
                             <p class="card-text text-muted">Gestiona la asignación de aulas y sus equipos</p>
@@ -73,6 +90,32 @@ if (!isset($_SESSION["nombre"])) {
                             <img src="https://cdn-icons-png.flaticon.com/512/2897/2897785.png" alt="Inventario" class="img-fluid mb-3" style="max-width: 150px;">
                             <h3 class="card-title text-primary">Gestión de Inventario</h3>
                             <p class="card-text text-muted">Administra el inventario de equipos y recursos</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- NUEVO: Módulo de Gestión de Alumnos -->
+            <div class="col-md-5">
+                <a href="alumnos.php" class="text-decoration-none">
+                    <div class="card module-card h-100 shadow">
+                        <div class="card-body text-center p-4">
+                            <img src="https://cdn-icons-png.flaticon.com/512/3135/3135768.png" alt="Alumnos" class="img-fluid mb-3" style="max-width: 150px;">
+                            <h3 class="card-title text-primary">Gestión de Alumnos</h3>
+                            <p class="card-text text-muted">Registrar y listar alumnos</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- NUEVO: Módulo de Gestión de Cursos -->
+            <div class="col-md-5">
+                <a href="cursos.php" class="text-decoration-none">
+                    <div class="card module-card h-100 shadow">
+                        <div class="card-body text-center p-4">
+                            <img src="https://cdn-icons-png.flaticon.com/512/2942/2942842.png" alt="Cursos" class="img-fluid mb-3" style="max-width: 150px;">
+                            <h3 class="card-title text-primary">Gestión de Cursos</h3>
+                            <p class="card-text text-muted">Ver cursos y alumnos matriculados</p>
                         </div>
                     </div>
                 </a>

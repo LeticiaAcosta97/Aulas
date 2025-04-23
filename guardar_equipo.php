@@ -1,49 +1,68 @@
 <?php
-include "config.php";
+include("config.php");
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    try {
-        $nro_factura = $_POST['nro_factura'];
-        $descripcion = $_POST['descripcion'];
-        $cantidad = intval($_POST['cantidad']);
-        $marca = $_POST['marca'];
-        $modelo = $_POST['modelo'];
+$response = ['success' => false, 'message' => ''];
 
-        // Validar datos
-        if (empty($nro_factura) || empty($descripcion) || $cantidad <= 0) {
-            throw new Exception("Todos los campos son obligatorios");
-        }
-
-        // Consulta actualizada según la estructura de la tabla
-        $sql = "INSERT INTO equipos (nombre, descripcion, tipo, marca, modelo, estado, nro_serie, nro_factura) 
-                VALUES (?, ?, ?, ?, ?, 'Sin Asignar', ?, ?)";
-        
-        $stmt = $conn->prepare($sql);
-        
-        // Insertar la cantidad especificada de equipos
-        for($i = 0; $i < $cantidad; $i++) {
-            $nombre = $descripcion; // El nombre será igual a la descripción
-            $tipo = $descripcion; // El tipo será igual a la descripción
-            $nro_serie = $nro_factura . "-" . str_pad(($i + 1), 3, "0", STR_PAD_LEFT);
-            
-            $stmt->bind_param("sssssss", 
-                $nombre,
-                $descripcion, 
-                $tipo,
-                $marca, 
-                $modelo,
-                $nro_serie,
-                $nro_factura
-            );
-            
-            if (!$stmt->execute()) {
-                throw new Exception("Error al insertar el equipo: " . $stmt->error);
-            }
-        }
-        
-        echo json_encode(['success' => true]);
-    } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-    }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    $response['message'] = 'Método no permitido';
+    echo json_encode($response);
+    exit;
 }
-?>
+
+if (!isset($_POST['nro_factura']) || !isset($_POST['patrimonio']) || 
+    !isset($_POST['descripcion']) || !isset($_POST['cantidad']) || 
+    !isset($_POST['marca']) || !isset($_POST['modelo'])) {
+    $response['message'] = 'Faltan datos requeridos';
+    echo json_encode($response);
+    exit;
+}
+
+try {
+    $nro_factura = trim($_POST['nro_factura']);
+    $patrimonio_base = trim($_POST['patrimonio']);
+    $descripcion = trim($_POST['descripcion']);
+    $cantidad = intval($_POST['cantidad']);
+    $marca = trim($_POST['marca']);
+    $modelo = trim($_POST['modelo']);
+
+    if (empty($nro_factura) || empty($patrimonio_base) || empty($descripcion) || 
+        $cantidad < 1 || empty($marca) || empty($modelo)) {
+        throw new Exception('Todos los campos son obligatorios');
+    }
+
+    // Insertar múltiples equipos con patrimonio correlativo
+    for ($i = 0; $i < $cantidad; $i++) {
+        $patrimonio_actual = strval(intval($patrimonio_base) + $i);
+        
+        $query = "INSERT INTO equipos (tipo, nombre, nro_factura, nro_serie, descripcion, marca, modelo, fecha_instalacion, periodo_mantenimiento) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_DATE(), 180)";
+        
+        $stmt = $conn->prepare($query);
+        if (!$stmt) {
+            throw new Exception($conn->error);
+        }
+
+        $tipo = explode(' ', $descripcion)[0];
+        $nombre = $descripcion; // Usando la descripción como nombre
+        
+        if (!$stmt->bind_param("sssssss", $tipo, $nombre, $nro_factura, $patrimonio_actual, $descripcion, $marca, $modelo)) {
+            throw new Exception($stmt->error);
+        }
+        
+        if (!$stmt->execute()) {
+            throw new Exception($stmt->error);
+        }
+        
+        $stmt->close();
+    }
+
+    $response['success'] = true;
+    $response['message'] = 'Equipos guardados correctamente';
+} catch (Exception $e) {
+    $response['success'] = false;
+    $response['message'] = 'Error al guardar: ' . $e->getMessage();
+}
+
+header('Content-Type: application/json');
+echo json_encode($response);
+exit;

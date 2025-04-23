@@ -1,12 +1,14 @@
 <?php
 include("config.php");
 
-if (!isset($_GET['aula_id'])) {
+if (!isset($_GET['aula_id']) || !isset($_GET['turnos_disponibles'])) {
     header("Location: asignacion_aulas.php");
     exit;
 }
 
 $aula_id = intval($_GET['aula_id']);
+// Convertir el objeto JSON a array
+$turnos_disponibles = json_decode(urldecode($_GET['turnos_disponibles']), true);
 
 // Obtener información del aula
 $aula_query = "SELECT numero FROM aulas WHERE id = ?";
@@ -16,12 +18,18 @@ $stmt->execute();
 $aula = $stmt->get_result()->fetch_assoc();
 
 // Obtener lista de cursos con sus detalles
-$query = "SELECT c.id, c.nombre as curso, c.turno, c.alumnos_matriculados, 
-          car.nombre as carrera
-          FROM cursos c
-          LEFT JOIN carreras car ON c.carrera_id = car.id
-          ORDER BY car.nombre, c.nombre";
-$result = $conn->query($query);
+$sql = "SELECT c.id, c.nombre AS curso, c.turno, car.nombre as carrera,
+        (
+            SELECT COUNT(*) FROM alumnos a
+            WHERE a.carrera = car.nombre
+              AND a.curso = c.nombre
+              AND a.turno = c.turno
+        ) AS alumnos_matriculados
+        FROM cursos c
+        JOIN carreras car ON c.carrera_id = car.id
+        WHERE c.turno IN ('" . implode("','", $turnos_disponibles) . "')
+        ORDER BY car.nombre, c.nombre";
+$result = $conn->query($sql);
 ?>
 
 <!DOCTYPE html>

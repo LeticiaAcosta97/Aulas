@@ -1,13 +1,14 @@
 <?php
-$host = "localhost";
-$user = "root";  // Usuario de MySQL
-$pass = "";      // Deja vacío si usas Laragon
-$db = "sistema_aulas";
+$host = 'localhost';
+$user = 'root';
+$password = '';
+$dbname = 'sistema_aulas';
 
-$conn = new mysqli($host, $user, $pass, $db);
+$conn = new mysqli($host, $user, $password, $dbname);
 
 if ($conn->connect_error) {
-    die("Error de conexión: " . $conn->connect_error);
+    die("Error de conexión a la base de datos: " . $conn->connect_error);
 }
+$conn->set_charset("utf8");
 ?>
 

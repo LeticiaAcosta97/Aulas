@@ -1,10 +1,16 @@
 <?php
-include "config.php";
+include("config.php");
 
-$query = "SELECT e.*, a.numero as numero_aula 
+$query = "SELECT e.*, a.numero as numero_aula, 
+          COALESCE(MAX(hm.fecha_mantenimiento), e.fecha_instalacion) as ultimo_mantenimiento,
+          e.periodo_mantenimiento
           FROM equipos e 
-          INNER JOIN aulas a ON e.aula_id = a.id 
-          ORDER BY a.numero, e.tipo";
+          INNER JOIN aulas_equipos ae ON e.id = ae.equipo_id
+          INNER JOIN aulas a ON ae.aula_id = a.id
+          LEFT JOIN historial_mantenimiento hm ON e.id = hm.equipo_id
+          GROUP BY e.id, a.numero
+          ORDER BY a.numero, e.descripcion";
+
 $result = $conn->query($query);
 ?>
 
@@ -41,7 +47,7 @@ $result = $conn->query($query);
                     <th>N° Serie/Patrimonio</th>
                     <th>Fecha Instalación</th>
                     <th>Último Mantenimiento</th>
-                    <th>Período Mant.</th>
+                    <th>Periodo Mant.</th>
                 </tr>
             </thead>
             <tbody>
@@ -49,9 +55,7 @@ $result = $conn->query($query);
                 $current_aula = null;
                 while ($row = $result->fetch_assoc()) { 
                     if ($current_aula !== $row['numero_aula']) {
-                        echo "<tr class='table-secondary'>";
-                        echo "<td colspan='10'><strong>Aula: " . $row['numero_aula'] . "</strong></td>";
-                        echo "</tr>";
+                        echo '<tr class="table-secondary"><th colspan="10">Aula: ' . $row['numero_aula'] . '</th></tr>';
                         $current_aula = $row['numero_aula'];
                     }
                 ?>
@@ -64,14 +68,12 @@ $result = $conn->query($query);
                         <td><?php echo $row['modelo']; ?></td>
                         <td><?php echo $row['nro_serie']; ?></td>
                         <td><?php echo $row['fecha_instalacion']; ?></td>
-                        <td><?php echo $row['ultima_fecha_mantenimiento']; ?></td>
+                        <td><?php echo $row['ultimo_mantenimiento']; ?></td>
                         <td><?php echo $row['periodo_mantenimiento']; ?> días</td>
                     </tr>
                 <?php } ?>
             </tbody>
         </table>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -1,7 +1,12 @@
 <?php
-include "config.php";
+include("config.php");
 
-$query = "SELECT * FROM equipos WHERE aula_id IS NULL ORDER BY nro_factura";
+$query = "SELECT e.* 
+          FROM equipos e 
+          LEFT JOIN aulas_equipos ae ON e.id = ae.equipo_id 
+          WHERE ae.id IS NULL 
+          ORDER BY e.nro_factura";
+
 $result = $conn->query($query);
 ?>
 
@@ -16,14 +21,11 @@ $result = $conn->query($query);
 </head>
 <body>
     <div class="container mt-5">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <a href="gestion_inventario.php" class="btn btn-primary">
-                <i class="bi bi-arrow-left-circle"></i> Volver
-            </a>
-            <h2>Equipos Sin Asignar</h2>
-            <div style="width: 138px;"></div>
-        </div>
-
+        <a href="gestion_inventario.php" class="btn btn-primary mb-3">
+            <i class="bi bi-arrow-left-circle"></i> Volver
+        </a>
+        <h2 class="text-center mb-4">Equipos Sin Asignar</h2>
+        
         <table class="table table-bordered">
             <thead class="table-dark">
                 <tr>
@@ -43,7 +45,7 @@ $result = $conn->query($query);
                         <td><?php echo $row['descripcion']; ?></td>
                         <td><?php echo $row['marca']; ?></td>
                         <td><?php echo $row['modelo']; ?></td>
-                        <td><?php echo $row['estado']; ?></td>
+                        <td><span class="badge bg-warning">Sin Asignar</span></td>
                     </tr>
                 <?php } ?>
             </tbody>

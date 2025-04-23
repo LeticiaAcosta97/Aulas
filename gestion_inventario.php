@@ -1,12 +1,19 @@
 <?php
 include("config.php");
 
-$query = "SELECT e.*, a.numero as numero_aula,
-          DATEDIFF(DATE_ADD(IFNULL(e.ultima_fecha_mantenimiento, CURDATE()), 
-          INTERVAL e.periodo_mantenimiento DAY), CURDATE()) as dias_restantes
-          FROM equipos e 
-          LEFT JOIN aulas a ON e.aula_id = a.id 
-          ORDER BY a.numero";
+$query = "SELECT e.*, 
+          COALESCE(MAX(hm.fecha_mantenimiento), e.fecha_instalacion) as ultima_fecha_mantenimiento,
+          DATEDIFF(
+              COALESCE(MAX(hm.fecha_mantenimiento), e.fecha_instalacion) + INTERVAL e.periodo_mantenimiento DAY,
+              CURRENT_DATE
+          ) as dias_restantes,
+          ae.aula_id,
+          e.nro_serie as patrimonio
+          FROM equipos e
+          LEFT JOIN aulas_equipos ae ON e.id = ae.equipo_id
+          LEFT JOIN historial_mantenimiento hm ON e.id = hm.equipo_id
+          GROUP BY e.id, ae.aula_id
+          ORDER BY e.descripcion";
 $result = $conn->query($query);
 ?>
 
@@ -18,6 +25,7 @@ $result = $conn->query($query);
     <title>Gestión de Inventario</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
     <div class="container mt-5">
@@ -39,7 +47,13 @@ $result = $conn->query($query);
             </div>
         </div>
 
-        <table class="table table-bordered">
+        <!-- Barra de búsqueda -->
+        <div class="mb-3">
+            <input type="text" id="busquedaInventario" class="form-control" placeholder="Buscar en la tabla...">
+        </div>
+        <!-- Fin barra de búsqueda -->
+
+        <table class="table table-bordered" id="tablaInventario">
             <thead class="table-dark">
                 <tr>
                     <th>Aula</th>
@@ -75,13 +89,31 @@ $result = $conn->query($query);
                     }
                 ?>
                     <tr>
-                        <td><?php echo $row['numero_aula']; ?></td>
+                        <td>
+                            <?php 
+                            if ($row['aula_id']) {
+                                $aula_query = "SELECT numero FROM aulas WHERE id = " . $row['aula_id'];
+                                $aula_result = $conn->query($aula_query);
+                                $aula = $aula_result->fetch_assoc();
+                                echo "Aula " . $aula['numero'];
+                            } else {
+                                echo 'Sin asignar';
+                            }
+                            ?>
+                        </td>
                         <td><?php echo $row['tipo']; ?></td>
                         <td><?php echo $row['descripcion']; ?></td>
                         <td><?php echo $row['nro_factura']; ?></td>
                         <td>
                             <?php if ($row['aula_id']): ?>
-                                <span class="badge bg-success">Asignado</span>
+                                <span class="badge bg-success">
+                                    <?php 
+                                    $aula_query = "SELECT numero FROM aulas WHERE id = " . $row['aula_id'];
+                                    $aula_result = $conn->query($aula_query);
+                                    $aula = $aula_result->fetch_assoc();
+                                    echo "Asignado al Aula " . $aula['numero'];
+                                    ?>
+                                </span>
                             <?php else: ?>
                                 <span class="badge bg-warning">Sin Asignar</span>
                             <?php endif; ?>
@@ -96,10 +128,14 @@ $result = $conn->query($query);
                         </td>
                         <td><?php echo $row['observaciones']; ?></td>
                         <td><?php echo $row['periodo_mantenimiento']; ?> días</td>
+                        <!-- Replace the actions column TD with this -->
                         <td>
-                            <div class="d-grid gap-2">
+                            <div class="btn-group-vertical w-100">
                                 <button class="btn btn-warning btn-sm" onclick="editarEquipo(<?php echo $row['id']; ?>)">
                                     <i class="bi bi-pencil"></i> Editar
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="eliminarEquipo(<?php echo htmlspecialchars($row['id']); ?>)">
+                                    <i class="bi bi-trash"></i> Eliminar
                                 </button>
                                 <button class="btn btn-info btn-sm" onclick="registrarMantenimiento(<?php echo $row['id']; ?>)">
                                     <i class="bi bi-tools"></i> Mantenimiento
@@ -116,40 +152,42 @@ $result = $conn->query($query);
     </div>
     
 
-    <!-- Modal para editar equipo -->
-    <div class="modal fade" id="modalEditarEquipo" tabindex="-1">
-        <div class="modal-dialog">
+    <!-- All modals here -->
+    <!-- Modal para Ingresar Equipos -->
+    <div class="modal fade" id="modalIngresarEquipo" tabindex="-1">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Editar Equipo</h5>
+                    <h5 class="modal-title">Ingresar Nuevos Equipos</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="formEditarEquipo">
-                        <input type="hidden" id="equipo_id">
-                        <div class="mb-3">
-                            <label class="form-label">Tipo</label>
-                            <input type="text" class="form-control" id="tipo" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Marca</label>
-                            <input type="text" class="form-control" id="marca" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Modelo</label>
-                            <input type="text" class="form-control" id="modelo" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">N° Serie/Patrimonio</label>
-                            <input type="text" class="form-control" id="nro_serie" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Fecha Instalación</label>
-                            <input type="date" class="form-control" id="fecha_instalacion" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Período de Mantenimiento (días)</label>
-                            <input type="number" class="form-control" id="periodo_mantenimiento" required>
+                    <form id="formIngresarEquipo">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Número de Factura</label>
+                                <input type="text" class="form-control" name="nro_factura" id="nro_factura" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Patrimonio</label>
+                                <input type="text" class="form-control" name="patrimonio" id="patrimonio" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Descripción</label>
+                                <textarea class="form-control" name="descripcion" id="descripcion" required></textarea>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Cantidad</label>
+                                <input type="number" class="form-control" name="cantidad" id="cantidad" value="1" min="1" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Marca</label>
+                                <input type="text" class="form-control" name="marca" id="marca" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Modelo</label>
+                                <input type="text" class="form-control" name="modelo" id="modelo" required>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -161,62 +199,52 @@ $result = $conn->query($query);
         </div>
     </div>
 
-    <!-- Eliminar script duplicado y corregir la estructura -->
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-        <script>
-            function editarEquipo(id) {
-                fetch('obtener_equipo.php?id=' + id)
-                    .then(response => response.json())
-                    .then(data => {
-                        document.getElementById('equipo_id').value = data.id;
-                        document.getElementById('tipo').value = data.tipo;
-                        document.getElementById('marca').value = data.marca;
-                        document.getElementById('modelo').value = data.modelo;
-                        document.getElementById('nro_serie').value = data.nro_serie;
-                        document.getElementById('fecha_instalacion').value = data.fecha_instalacion;
-                        document.getElementById('periodo_mantenimiento').value = data.periodo_mantenimiento;
-                        
-                        var modal = new bootstrap.Modal(document.getElementById('modalEditarEquipo'));
-                        modal.show();
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Error al cargar los datos del equipo');
-                    });
-            }
-    
-            function guardarEquipo() {
-                const formData = new FormData();
-                formData.append('equipo_id', document.getElementById('equipo_id').value);
-                formData.append('tipo', document.getElementById('tipo').value);
-                formData.append('marca', document.getElementById('marca').value);
-                formData.append('modelo', document.getElementById('modelo').value);
-                formData.append('nro_serie', document.getElementById('nro_serie').value);
-                formData.append('fecha_instalacion', document.getElementById('fecha_instalacion').value);
-                formData.append('periodo_mantenimiento', document.getElementById('periodo_mantenimiento').value);
-        
-                fetch('actualizar_equipo.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Cerrar modal
-                        bootstrap.Modal.getInstance(document.getElementById('modalEditarEquipo')).hide();
-                        // Recargar página
-                        location.reload();
-                    } else {
-                        alert('Error al guardar los cambios: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error al guardar los cambios');
-                });
-            }
-        </script>
-    <!-- Agregar este modal antes del cierre del div container -->
+    <!-- Modal para editar equipo -->
+    <div class="modal fade" id="modalEditarEquipo" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Editar Equipo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formEditarEquipo">
+                        <input type="hidden" name="equipo_id" id="equipo_id">
+                        <div class="mb-3">
+                            <label class="form-label">Tipo</label>
+                            <input type="text" class="form-control" name="tipo" id="tipo" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Marca</label>
+                            <input type="text" class="form-control" name="marca" id="marca" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Modelo</label>
+                            <input type="text" class="form-control" name="modelo" id="modelo" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">N° Serie/Patrimonio</label>
+                            <input type="text" class="form-control" name="nro_serie" id="nro_serie" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Fecha Instalación</label>
+                            <input type="date" class="form-control" name="fecha_instalacion" id="fecha_instalacion" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Período de Mantenimiento (días)</label>
+                            <input type="number" class="form-control" name="periodo_mantenimiento" id="periodo_mantenimiento" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarEdicionEquipo()">Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Mantenimiento -->
     <div class="modal fade" id="modalMantenimiento" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -245,42 +273,7 @@ $result = $conn->query($query);
         </div>
     </div>
 
-    <!-- Actualizar las funciones JavaScript -->
-    <script>
-        function registrarMantenimiento(id) {
-            document.getElementById('mantenimiento_equipo_id').value = id;
-            document.getElementById('fecha_mantenimiento').value = new Date().toISOString().split('T')[0];
-            var modal = new bootstrap.Modal(document.getElementById('modalMantenimiento'));
-            modal.show();
-        }
-
-        function guardarMantenimiento() {
-            const formData = new FormData();
-            formData.append('equipo_id', document.getElementById('mantenimiento_equipo_id').value);
-            formData.append('fecha_mantenimiento', document.getElementById('fecha_mantenimiento').value);
-            formData.append('observaciones', document.getElementById('observaciones').value);
-
-            fetch('registrar_mantenimiento.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    bootstrap.Modal.getInstance(document.getElementById('modalMantenimiento')).hide();
-                    location.reload();
-                } else {
-                    alert('Error al registrar el mantenimiento: ' + data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error al registrar el mantenimiento');
-            });
-        }
-    </script>
-
-    <!-- Agregar Modal para Historial -->
+    <!-- Modal para Historial -->
     <div class="modal fade" id="modalHistorial" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -295,153 +288,158 @@ $result = $conn->query($query);
         </div>
     </div>
 
-    <!-- Agregar función JavaScript para ver historial -->
+    <!-- Scripts at the end -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-    function verHistorial(id) {
-        fetch('obtener_historial.php?id=' + id)
-            .then(response => response.text())
+        function eliminarEquipo(id) {
+            if (confirm('¿Está seguro que desea eliminar este equipo?')) {
+                fetch('eliminar_equipo.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'id=' + id
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Equipo eliminado correctamente');
+                        window.location.reload();
+                    } else {
+                        alert('Error al eliminar el equipo: ' + (data.error || 'Error desconocido'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al eliminar el equipo');
+                });
+            }
+        }
+
+        function editarEquipo(id) {
+            fetch('obtener_equipo.php?id=' + id)
+                .then(response => response.json())
+                .then(data => {
+                    // Asegurarse de que los IDs coincidan exactamente con los del formulario
+                    document.querySelector('#formEditarEquipo input[name="equipo_id"]').value = data.id;
+                    document.querySelector('#formEditarEquipo input[name="tipo"]').value = data.tipo;
+                    document.querySelector('#formEditarEquipo input[name="marca"]').value = data.marca;
+                    document.querySelector('#formEditarEquipo input[name="modelo"]').value = data.modelo;
+                    document.querySelector('#formEditarEquipo input[name="nro_serie"]').value = data.nro_serie;
+                    document.querySelector('#formEditarEquipo input[name="fecha_instalacion"]').value = data.fecha_instalacion;
+                    document.querySelector('#formEditarEquipo input[name="periodo_mantenimiento"]').value = data.periodo_mantenimiento;
+                    
+                    var modal = new bootstrap.Modal(document.getElementById('modalEditarEquipo'));
+                    modal.show();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al cargar los datos del equipo');
+                });
+        }
+
+        function registrarMantenimiento(id) {
+            document.getElementById('mantenimiento_equipo_id').value = id;
+            document.getElementById('fecha_mantenimiento').value = new Date().toISOString().split('T')[0];
+            var modal = new bootstrap.Modal(document.getElementById('modalMantenimiento'));
+            modal.show();
+        }
+
+        function verHistorial(id) {
+            fetch('obtener_historial.php?id=' + id)
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('historialContenido').innerHTML = data;
+                    var modal = new bootstrap.Modal(document.getElementById('modalHistorial'));
+                    modal.show();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al cargar el historial');
+                });
+        }
+
+        function guardarEquipo() {
+            const formData = new FormData(document.getElementById('formIngresarEquipo'));
+            
+            fetch('guardar_equipo.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
             .then(data => {
-                document.getElementById('historialContenido').innerHTML = data;
-                var modal = new bootstrap.Modal(document.getElementById('modalHistorial'));
-                modal.show();
+                if (data.success) {
+                    alert('Equipos guardados correctamente');
+                    location.reload();
+                } else {
+                    alert(data.message);
+                }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error al cargar el historial');
+                alert('Error al procesar la solicitud');
             });
-    }
+        }
+
+        function guardarEdicionEquipo() {
+            const formData = new FormData(document.getElementById('formEditarEquipo'));
+            
+            fetch('actualizar_equipo.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Crear el modal de éxito
+                    const successModal = document.createElement('div');
+                    successModal.className = 'modal fade show';
+                    successModal.style.display = 'block';
+                    successModal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                    successModal.innerHTML = `
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header bg-success text-white">
+                                    <h5 class="modal-title">
+                                        <i class="bi bi-check-circle"></i> Éxito
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" onclick="this.closest('.modal').remove()"></button>
+                                </div>
+                                <div class="modal-body">
+                                    Equipos actualizados correctamente
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-primary" onclick="this.closest('.modal').remove()">Aceptar</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(successModal);
+
+                    // Remover el modal y recargar después de hacer clic en Aceptar
+                    successModal.querySelector('.btn-primary').addEventListener('click', () => {
+                        location.reload();
+                    });
+                } else {
+                    alert(data.message || 'Error al actualizar el equipo');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al procesar la solicitud');
+            });
+        }
+    </script>
+    <script>
+    // Filtro de búsqueda en la tabla de inventario usando jQuery
+    $(document).ready(function(){
+        $("#busquedaInventario").on("keyup", function() {
+            var value = $(this).val().toLowerCase();
+            $("#tablaInventario tbody tr").filter(function() {
+                $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+            });
+        });
+    });
     </script>
 </body>
 </html>
-
-<!-- Modal para Ingresar Equipos -->
-<div class="modal fade" id="modalIngresarEquipo" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Ingresar Nuevos Equipos</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formIngresarEquipo">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Número de Factura</label>
-                            <input type="text" class="form-control" id="nro_factura" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Patrimonio</label>
-                            <input type="text" class="form-control" id="patrimonio" required>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Descripción</label>
-                            <textarea class="form-control" id="descripcion" required></textarea>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Cantidad</label>
-                            <input type="number" class="form-control" id="cantidad" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Marca</label>
-                            <input type="text" class="form-control" id="marca" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Modelo</label>
-                            <input type="text" class="form-control" id="modelo" required>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="button" class="btn btn-primary" onclick="guardarEquipo()">Guardar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-function guardarEquipo() {
-    const formData = new FormData();
-    formData.append('nro_factura', document.getElementById('nro_factura').value);
-    formData.append('patrimonio', document.getElementById('patrimonio').value);
-    formData.append('descripcion', document.getElementById('descripcion').value);
-    formData.append('cantidad', document.getElementById('cantidad').value);
-    formData.append('marca', document.getElementById('marca').value);
-    formData.append('modelo', document.getElementById('modelo').value);
-
-    fetch('guardar_equipo.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert('Error al guardar el equipo: ' + data.error);
-        }
-    });
-}
-</script>
-
-<!-- Add Modal for Aula Assignment -->
-<div class="modal fade" id="modalAsignarAula" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Asignar Aula</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formAsignarAula">
-                    <input type="hidden" id="equipo_id_asignar">
-                    <div class="mb-3">
-                        <label class="form-label">Seleccionar Aula</label>
-                        <select class="form-select" id="aula_id" required>
-                            <?php
-                            $aulas_query = "SELECT id, numero FROM aulas ORDER BY numero";
-                            $aulas_result = $conn->query($aulas_query);
-                            while ($aula = $aulas_result->fetch_assoc()) {
-                                echo "<option value='" . $aula['id'] . "'>" . $aula['numero'] . "</option>";
-                            }
-                            ?>
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-primary" onclick="guardarAsignacion()">Guardar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Add JavaScript functions -->
-<script>
-function asignarAula(id) {
-    document.getElementById('equipo_id_asignar').value = id;
-    var modal = new bootstrap.Modal(document.getElementById('modalAsignarAula'));
-    modal.show();
-}
-
-function guardarAsignacion() {
-    const formData = new FormData();
-    formData.append('equipo_id', document.getElementById('equipo_id_asignar').value);
-    formData.append('aula_id', document.getElementById('aula_id').value);
-
-    fetch('asignar_aula.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert('Error al asignar aula: ' + data.error);
-        }
-    });
-}
-</script>
