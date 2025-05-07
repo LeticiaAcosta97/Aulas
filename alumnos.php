@@ -2,8 +2,28 @@
 session_start();
 include "config.php";
 
+// --- Add search filter logic ---
+$search = '';
+$where = '';
+if (isset($_GET['buscar']) && trim($_GET['buscar']) !== '') {
+    $search = trim($_GET['buscar']);
+    $where = "WHERE cedula_identidad LIKE ? OR nombre LIKE ? OR apellido LIKE ?";
+}
+
+// --- Add sorting logic ---
+$allowed_columns = ['cedula_identidad', 'nombre', 'apellido', 'carrera', 'curso', 'turno', 'contacto'];
+$order_by = 'cedula_identidad'; // default column
+$order_dir = 'ASC'; // default direction
+
+if (isset($_GET['sort']) && in_array($_GET['sort'], $allowed_columns)) {
+    $order_by = $_GET['sort'];
+}
+if (isset($_GET['dir']) && in_array(strtoupper($_GET['dir']), ['ASC', 'DESC'])) {
+    $order_dir = strtoupper($_GET['dir']);
+}
+
 // Registrar nuevo alumno
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['filtro_busqueda'])) {
     $cedula = trim($_POST['cedula_identidad']);
     $nombre = trim($_POST['nombre']);
     $apellido = trim($_POST['apellido']);
@@ -41,9 +61,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $check->close();
 }
 
-// Listar alumnos
-$sql = "SELECT cedula_identidad, nombre, apellido, carrera, curso, turno, contacto FROM alumnos";
-$result = $conn->query($sql);
+// --- Modify the SQL query for listing students ---
+if ($where) {
+    $sql = "SELECT cedula_identidad, nombre, apellido, carrera, curso, turno, contacto FROM alumnos $where ORDER BY $order_by $order_dir";
+    $stmt = $conn->prepare($sql);
+    $like = "%$search%";
+    $stmt->bind_param("sss", $like, $like, $like);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $stmt->close();
+} else {
+    $sql = "SELECT cedula_identidad, nombre, apellido, carrera, curso, turno, contacto FROM alumnos ORDER BY $order_by $order_dir";
+    $result = $conn->query($sql);
+}
 ?>
 
 <!DOCTYPE html>
@@ -79,6 +109,18 @@ $result = $conn->query($sql);
         <div class="row justify-content-center">
             <div class="col-lg-8">
                 <a href="dashboard.php" class="btn btn-primary main-menu-btn">Menu Principal</a>
+            </div>
+        </div>
+        <!-- --- Add search form here --- -->
+        <div class="row justify-content-center mb-3">
+            <div class="col-lg-8">
+                <form method="GET" class="d-flex">
+                    <input type="text" name="buscar" class="form-control me-2" placeholder="Buscar por cédula, nombre o apellido" value="<?= htmlspecialchars($search) ?>">
+                    <button type="submit" class="btn btn-success">Buscar</button>
+                    <?php if($search): ?>
+                        <a href="alumnos.php" class="btn btn-secondary ms-2">Limpiar</a>
+                    <?php endif; ?>
+                </form>
             </div>
         </div>
         <div class="row justify-content-center">
@@ -145,13 +187,30 @@ $result = $conn->query($sql);
                     <table class="table table-bordered table-striped align-middle text-center">
                         <thead class="table-primary">
                             <tr>
-                                <th>Cédula</th>
-                                <th>Nombre</th>
-                                <th>Apellido</th>
-                                <th>Carrera</th>
-                                <th>Curso</th>
-                                <th>Turno</th>
-                                <th>Contacto</th>
+                                <?php
+                                // Helper for sort links
+                                function sort_link($label, $column, $order_by, $order_dir, $search) {
+                                    $dir = ($order_by === $column && $order_dir === 'ASC') ? 'DESC' : 'ASC';
+                                    $arrow = '';
+                                    if ($order_by === $column) {
+                                        $arrow = $order_dir === 'ASC' ? ' ▲' : ' ▼';
+                                    }
+                                    $params = [
+                                        'sort' => $column,
+                                        'dir' => $dir
+                                    ];
+                                    if ($search) $params['buscar'] = $search;
+                                    $url = '?' . http_build_query($params);
+                                    return "<a href=\"$url\">$label$arrow</a>";
+                                }
+                                ?>
+                                <th><?= sort_link('Cédula', 'cedula_identidad', $order_by, $order_dir, $search) ?></th>
+                                <th><?= sort_link('Nombre', 'nombre', $order_by, $order_dir, $search) ?></th>
+                                <th><?= sort_link('Apellido', 'apellido', $order_by, $order_dir, $search) ?></th>
+                                <th><?= sort_link('Carrera', 'carrera', $order_by, $order_dir, $search) ?></th>
+                                <th><?= sort_link('Curso', 'curso', $order_by, $order_dir, $search) ?></th>
+                                <th><?= sort_link('Turno', 'turno', $order_by, $order_dir, $search) ?></th>
+                                <th><?= sort_link('Contacto', 'contacto', $order_by, $order_dir, $search) ?></th>
                             </tr>
                         </thead>
                         <tbody>

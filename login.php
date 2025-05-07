@@ -17,6 +17,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if ($result->num_rows == 1) {
         $row = $result->fetch_assoc();
+        var_dump($password, $row['password'], verifyPassword($password, $row['password']));
         if (verifyPassword($password, $row['password']) || ($usuario === 'admin' && $password === 'adm123')) {
             $_SESSION["usuario_id"] = $row["id"];
             $_SESSION["nombre"] = $row["nombre"];
