@@ -120,6 +120,18 @@ if (!isset($_SESSION["nombre"])) {
                     </div>
                 </a>
             </div>
+            <!-- NUEVO: Módulo de Reservas de Salas/Auditorios/Laboratorios -->
+            <div class="col-md-5">
+                <a href="reservas.php" class="text-decoration-none">
+                    <div class="card module-card h-100 shadow">
+                        <div class="card-body text-center p-4">
+                            <img src="https://cdn-icons-png.flaticon.com/512/3062/3062634.png" alt="Reservas" class="img-fluid mb-3" style="max-width: 150px;">
+                            <h3 class="card-title text-primary">Reservas de Salas/Auditorios/Laboratorios</h3>
+                            <p class="card-text text-muted">Permite reservar espacios para actividades especiales y ver la capacidad de cada sala</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
         </div>
     </div>
 
